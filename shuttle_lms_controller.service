@@ -1,0 +1,14 @@
+[Unit]
+Description=ShuttleXpress listener to control Logitech Media Server
+After=logitechmediaserver.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/shuttle_lms_controller.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shuttle_lms_controller
+
+[Install]
+WantedBy=multi-user.target
