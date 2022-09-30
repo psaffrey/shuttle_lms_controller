@@ -47,20 +47,33 @@ class ButtonMethods(object):
         name = self._name
         s = Server(hostname=host, port=port)
         try:
+            logging.info("connecting")
             s.connect()
-        except:
-            logging.error(f"could not contact server {host} {port} {name}")
+        except Exception as e:
+            logging.error(f"could not contact server {host} {port} {name} ({str(e)}")
             return
         for player in s.players:
             this_name = player.name
             if this_name == name:
+                logging.info(f"setting player with name {name}")
                 self._player = player
         if self._player is None:
             raise LMSException(f"could not find player with name {name}")
 
     @property
     def player(self):
+        # check if player is initialised yet
         if self._player is None:
+            logging.warning("player is None - getting")
+            self._get_player()
+        # this tries to detect if the player has gone stale and needs to be refreshed
+        try:
+            if self._player.name != self._name:
+                logging.warning("player has wrong name - reacquiring")
+                self._get_player()
+            self._player.update(self._player.index)
+        except Exception as e:
+            logging.warning(f"Exception getting player {str(e)} - getting again")
             self._get_player()
         return self._player
 
@@ -76,37 +89,37 @@ class ButtonMethods(object):
     def volume(self, event):
         val = event.value
         if val > self._last_volume:
-            logging.info("volume up")
-            self._player.volume_up(self.VOLUME_INCREMENT)
+            logging.info(f"volume up in player {self.player.name}")
+            self.player.volume_up(self.VOLUME_INCREMENT)
         elif val < self._last_volume:
-            logging.info("volume down")
-            self._player.volume_down(self.VOLUME_INCREMENT)
+            logging.info(f"volume down {self.player.name}")
+            self.player.volume_down(self.VOLUME_INCREMENT)
         else:
             # this could be a recurring event - nothing to do
             pass
         if(self._last_volume == val):
-            logging.debug(f"current volume: {self._player.get_volume()}")
+            logging.debug(f"current volume: {self.player.get_volume()}")
         else:
-            logging.info(f"current volume: {self._player.get_volume()}")
+            logging.info(f"current volume: {self.player.get_volume()}")
         self._last_volume = val
 
     @_check_player
     def play_pause(self, event):
         if event.value == 1:
             logging.info("toggle")
-            self._player.toggle()
+            self.player.toggle()
 
     @_check_player
     def skip_forward(self, event):
         if event.value == 1:
             logging.info("forward")
-            self._player.next()
+            self.player.next()
 
     @_check_player
     def skip_backward(self, event):
         if event.value == 1:
             logging.info("back-to-beginning")
-            self._player.seek_to(0)
+            self.player.seek_to(0)
 
     def echo(self, event):
         """
@@ -125,7 +138,7 @@ class ShuttleManager(object):
         for device in devices:
             if search_string in device.name:
                 return device
-        logging.warn(f"{','.join([ d.name for d in devices ])}")
+        logging.warning(f"{','.join([ d.name for d in devices ])}")
         raise DeviceNotFound(f"Could not find device with name {search_string}")
 
     def main_loop(self):
